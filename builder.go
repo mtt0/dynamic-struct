@@ -16,6 +16,7 @@ type (
 		// builder.AddField("SomeFloatField", 0.0, `json:"boolean" validate:"gte=10"`)
 		//
 		AddField(name string, typ interface{}, tag string) Builder
+		addField(name string, pkg string, typ interface{}, tag string, anonymous bool) Builder
 		// RemoveField removes existing struct's field.
 		//
 		// builder.RemoveField("SomeFloatField")
@@ -88,8 +89,10 @@ type (
 
 	fieldConfigImpl struct {
 		name string
+		pkg  string
 		typ  interface{}
 		tag  string
+		anonymous bool
 	}
 
 	dynamicStructImpl struct {
@@ -132,7 +135,7 @@ func MergeStructs(values ...interface{}) Builder {
 		for i := 0; i < valueOf.NumField(); i++ {
 			fval := valueOf.Field(i)
 			ftyp := typeOf.Field(i)
-			builder.AddField(ftyp.Name, fval.Interface(), string(ftyp.Tag))
+			builder.addField(ftyp.Name, ftyp.PkgPath, fval.Interface(), string(ftyp.Tag), ftyp.Anonymous)
 		}
 	}
 
@@ -140,10 +143,15 @@ func MergeStructs(values ...interface{}) Builder {
 }
 
 func (b *builderImpl) AddField(name string, typ interface{}, tag string) Builder {
+	return b.addField(name, "", typ, tag, false)
+}
+
+func (b *builderImpl) addField(name string, pkg string, typ interface{}, tag string, anonymous bool) Builder {
 	b.fields = append(b.fields, &fieldConfigImpl{
 		name: name,
 		typ:  typ,
 		tag:  tag,
+		anonymous: anonymous,
 	})
 
 	return b
@@ -183,8 +191,10 @@ func (b *builderImpl) Build() DynamicStruct {
 	for _, field := range b.fields {
 		structFields = append(structFields, reflect.StructField{
 			Name: field.name,
+			PkgPath: field.pkg,
 			Type: reflect.TypeOf(field.typ),
 			Tag:  reflect.StructTag(field.tag),
+			Anonymous: field.anonymous,
 		})
 	}
 
